@@ -1007,7 +1007,8 @@ function loadWikipediaImage(filename,imgEl,errEl){
       }
     });
 }
-(prefix,left){
+
+function updateTimerBar(prefix,left){
   const num=document.getElementById(prefix+'-num');
   const bar=document.getElementById(prefix+'-bar');
   num.textContent=left;
