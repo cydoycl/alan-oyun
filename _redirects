@@ -1,0 +1,1 @@
+/img-proxy/* /.netlify/functions/proxy?url=https://upload.wikimedia.org/:splat 200

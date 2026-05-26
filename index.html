@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alan — Oyun</title>
+
+<!-- Firebase ÖNCE yükleniyor -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig={
+  apiKey:"AIzaSyDDTriKhUZosDTut_oDmsDjwJ3E1lgVZ4I",
+  authDomain:"alan-7644c.firebaseapp.com",
+  databaseURL:"https://alan-7644c-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"alan-7644c",
+  storageBucket:"alan-7644c.firebasestorage.app",
+  messagingSenderId:"972978643643",
+  appId:"1:972978643643:web:eeffffd7a7211116003f9e"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+const gRef=db.ref('alan_game_v2');
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--sami:#378ADD;--emir:#4CAF50;--beko:#F59E0B;--space:#A855F7;}
+body{background:#0a0a0a;color:#fff;font-family:'Inter',sans-serif;height:100vh;overflow:hidden;}
+
+/* JOIN */
+#screen-join{display:flex;position:fixed;inset:0;background:#0a0a0a;z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:1.5rem;}
+#screen-join h1{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:6px;}
+.join-buttons{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:320px;}
+.join-btn{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;padding:16px;border-radius:8px;border:2px solid;cursor:pointer;background:transparent;transition:opacity 0.15s;}
+.join-btn:hover{opacity:0.75;}
+.join-btn.sami{color:var(--sami);border-color:var(--sami);}
+.join-btn.emir{color:var(--emir);border-color:var(--emir);}
+.join-btn.beko{color:var(--beko);border-color:var(--beko);}
+.join-btn.space{color:var(--space);border-color:var(--space);}
+.join-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* BOARD */
+#screen-board{display:none;flex-direction:column;height:100vh;padding:12px;gap:8px;}
+.top-bar{display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:10px;}
+.game-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:4px;flex-shrink:0;}
+#turn-pill{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;padding:5px 14px;border-radius:999px;border:2px solid #333;color:#888;}
+.players-bar{display:flex;gap:6px;}
+.pchip{display:flex;align-items:center;gap:6px;background:#161616;border:1px solid #222;border-radius:999px;padding:4px 10px 4px 6px;font-size:11px;}
+.pchip.my{border-width:2px;}
+.pchip.active-turn{border-width:2px;}
+.pchip .dot{width:8px;height:8px;border-radius:50%;}
+.pchip .pname{font-weight:600;}
+.pchip .psq{color:#888;}
+.pchip .pas{color:#F59E0B;font-size:10px;margin-left:2px;}
+.pchip.elim{opacity:0.3;}
+
+/* BOARD LAYOUT */
+.board-wrap{flex:1;display:flex;gap:8px;min-height:0;}
+.side-labels{display:flex;flex-direction:column;gap:3px;width:108px;flex-shrink:0;}
+.lgroup{display:flex;flex-direction:column;gap:3px;flex:1;}
+.lbl{flex:1;display:flex;align-items:center;padding:0 7px;border-radius:4px;font-size:8px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lbl.dep{opacity:0.2;text-decoration:line-through;}
+.side-labels-r .lbl{justify-content:flex-end;}
+
+#game-grid{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);gap:3px;flex:1;min-height:0;}
+.cell{border-radius:3px;background:#161616;border:1px solid #1e1e1e;transition:background 0.3s,border-color 0.2s,transform 0.15s;position:relative;overflow:hidden;}
+.cell.o-sami {background:#0d2a47;border-color:#1a4a78;}
+.cell.o-emir {background:#0d2e0f;border-color:#1a5c1e;}
+.cell.o-beko {background:#2e1f05;border-color:#5c3e0a;}
+.cell.o-space{background:#1e0a2e;border-color:#3d1478;}
+.cell.o-sami::after {content:'';position:absolute;inset:0;background:var(--sami);opacity:0.14;}
+.cell.o-emir::after {content:'';position:absolute;inset:0;background:var(--emir);opacity:0.14;}
+.cell.o-beko::after {content:'';position:absolute;inset:0;background:var(--beko);opacity:0.14;}
+.cell.o-space::after{content:'';position:absolute;inset:0;background:var(--space);opacity:0.14;}
+.cell.attackable{cursor:pointer;}
+.cell.attackable:hover{transform:scale(1.07);border-color:#fff5 !important;z-index:2;}
+.cell.targeted{border:2px solid #fff !important;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{border-color:#fff !important}50%{border-color:#fff3 !important}}
+@keyframes cap{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+.cell.cap{animation:cap 0.4s ease;}
+
+.action-bar{flex-shrink:0;display:flex;justify-content:center;align-items:center;gap:12px;min-height:36px;}
+#action-lbl{font-size:13px;color:#888;}
+.pas-btn{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;background:transparent;border:1px solid #444;color:#888;padding:6px 18px;border-radius:4px;cursor:pointer;}
+.pas-btn:hover{border-color:#888;color:#fff;}
+.pas-btn:disabled{opacity:0.3;cursor:not-allowed;}
+
+/* QUESTION SCREEN */
+#screen-q{display:none;position:fixed;inset:0;background:#0a0a0a;z-index:200;align-items:center;justify-content:center;flex-direction:column;padding:1.5rem;gap:0.9rem;}
+#screen-q.open{display:flex;}
+
+.battle-header{display:flex;align-items:center;gap:16px;}
+.b-player{text-align:center;}
+.b-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;margin:0 auto 3px;}
+.b-player span{font-size:11px;color:#888;}
+.b-vs{font-family:'Bebas Neue',sans-serif;font-size:24px;color:#333;}
+.round-badge{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;padding:4px 12px;border-radius:999px;background:#1a1a1a;color:#888;}
+
+/* TIMERS */
+.timers{display:flex;flex-direction:column;gap:6px;width:540px;max-width:95vw;}
+.timer-row{display:flex;align-items:center;gap:10px;}
+.t-name{font-size:11px;width:52px;text-align:right;flex-shrink:0;}
+.t-name.mine{color:#fff;font-weight:600;}
+.t-bar-wrap{flex:1;height:7px;background:#222;border-radius:4px;overflow:hidden;}
+.t-bar{height:100%;border-radius:4px;transition:width 0.9s linear;}
+.t-num{font-family:'Bebas Neue',sans-serif;font-size:18px;width:30px;flex-shrink:0;text-align:right;}
+.t-num.red{color:#EF4444;}
+
+/* Q CARD */
+.q-card{background:#111;border:1px solid #222;border-radius:12px;padding:1.25rem;width:580px;max-width:95vw;display:flex;gap:1rem;}
+.q-img{flex-shrink:0;width:150px;height:150px;border-radius:7px;overflow:hidden;background:#1a1a1a;display:flex;align-items:center;justify-content:center;}
+.q-img img{width:100%;height:100%;object-fit:cover;}
+.q-body{flex:1;display:flex;flex-direction:column;gap:7px;}
+.q-badge{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 9px;border-radius:4px;background:#1a1a1a;color:#888;align-self:flex-start;}
+.q-whose{font-size:11px;font-weight:600;margin:0;}
+.q-text{font-size:14px;font-weight:500;line-height:1.4;}
+.q-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto;}
+.qo{background:#161616;border:1px solid #2a2a2a;border-radius:6px;padding:9px 11px;font-size:12px;color:#ccc;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;transition:border-color 0.12s,background 0.12s;}
+.qo:hover:not(:disabled){border-color:#555;background:#1e1e1e;}
+.qo:disabled{cursor:default;}
+.qo.correct{background:#0d2e0f;border-color:#4CAF50;color:#4CAF50;}
+.qo.wrong{background:#2e0d0d;border-color:#EF4444;color:#EF4444;}
+.qo.hi{background:#0d2e0f;border-color:#4CAF50;color:#4CAF50;}
+
+.status-msg{font-size:13px;padding:0.75rem 1.25rem;border-radius:8px;text-align:center;width:540px;max-width:95vw;}
+.status-msg.win{background:#0d2e0f;color:#4CAF50;}
+.status-msg.lose{background:#2e0d0d;color:#EF4444;}
+.status-msg.info{background:#1a1a1a;color:#888;}
+
+#btn-continue{display:none;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;background:#fff;color:#000;border:none;padding:9px 28px;border-radius:6px;cursor:pointer;}
+#btn-continue:hover{background:#ddd;}
+
+/* WINNER */
+#screen-win{display:none;position:fixed;inset:0;background:#0a0a0a;z-index:300;align-items:center;justify-content:center;flex-direction:column;text-align:center;}
+#screen-win.open{display:flex;}
+#screen-win h1{font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:6px;margin-bottom:0.5rem;}
+#screen-win p{color:#888;font-size:14px;margin-bottom:2rem;}
+#screen-win button{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:3px;background:#fff;color:#000;border:none;padding:10px 36px;border-radius:6px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- JOIN -->
+<div id="screen-join">
+  <h1>ALAN</h1>
+  <p style="color:#888;font-size:13px;">Hangi oyuncu olduğunu seç:</p>
+  <div class="join-buttons">
+    <button class="join-btn sami" onclick="joinAs('sami')">SAMİ</button>
+    <button class="join-btn emir" onclick="joinAs('emir')">EMİR</button>
+    <button class="join-btn beko" onclick="joinAs('beko')">BEKO</button>
+    <button class="join-btn space" onclick="joinAs('space')">SPACE</button>
+  </div>
+  <p id="join-err" style="color:#EF4444;font-size:13px;display:none;"></p>
+</div>
+
+<!-- BOARD -->
+<div id="screen-board" style="display:none;flex-direction:column;height:100vh;padding:12px;gap:8px;">
+  <div class="top-bar">
+    <div class="game-title">ALAN</div>
+    <div id="turn-pill">Yükleniyor...</div>
+    <div class="players-bar" id="players-bar"></div>
+  </div>
+  <div class="board-wrap">
+    <div class="side-labels" id="labels-l"></div>
+    <div id="game-grid"></div>
+    <div class="side-labels side-labels-r" id="labels-r"></div>
+  </div>
+  <div class="action-bar">
+    <span id="action-lbl"></span>
+    <button class="pas-btn" id="btn-pas" onclick="usePas()" style="display:none">PAS</button>
+    <button class="pas-btn" onclick="confirmReset()" style="margin-left:auto;color:#555;border-color:#333">↺ SIFIRLA</button>
+  </div>
+</div>
+
+<!-- QUESTION -->
+<div id="screen-q">
+  <div class="battle-header">
+    <div class="b-player">
+      <div class="b-av" id="av-q"></div>
+      <span id="name-q"></span>
+    </div>
+    <div class="b-vs">VS</div>
+    <div class="b-player">
+      <div class="b-av" id="av-d"></div>
+      <span id="name-d"></span>
+    </div>
+    <div class="round-badge" id="round-badge">TUR 1</div>
+  </div>
+
+  <div class="timers" id="timers-wrap">
+    <div class="timer-row">
+      <div class="t-name" id="t-q-name"></div>
+      <div class="t-bar-wrap"><div class="t-bar" id="t-q-bar" style="width:100%"></div></div>
+      <div class="t-num" id="t-q-num">45</div>
+    </div>
+    <div class="timer-row">
+      <div class="t-name" id="t-d-name"></div>
+      <div class="t-bar-wrap"><div class="t-bar" id="t-d-bar" style="width:100%"></div></div>
+      <div class="t-num" id="t-d-num">45</div>
+    </div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-img">
+      <img id="q-img" src="" alt="" onerror="this.style.display='none';document.getElementById('q-img-err').style.display='flex'">
+      <div id="q-img-err" style="display:none;font-size:28px">🖼️</div>
+    </div>
+    <div class="q-body">
+      <div class="q-badge" id="q-cat"></div>
+      <p class="q-whose" id="q-whose"></p>
+      <div class="q-text" id="q-text"></div>
+      <div class="q-opts" id="q-opts"></div>
+    </div>
+  </div>
+
+  <div class="status-msg info" id="status-msg" style="display:none"></div>
+  <button id="btn-continue" onclick="continueAfterRound()">DEVAM</button>
+</div>
+
+<!-- WINNER -->
+<div id="screen-win">
+  <div style="font-size:64px;margin-bottom:1rem">🏆</div>
+  <h1 id="win-name"></h1>
+  <p id="win-sub"></p>
+  <button onclick="resetGame()">YENİ OYUN</button>
+</div>
+
+<script>
+const QUESTIONS = {
+  "Anime karakterleri": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/9/94/NarutoUzumaki.png", q:"Bu anime karakteri kimdir?", options:["Sasuke Uchiha","Naruto Uzumaki","Ichigo Kurosaki","Izuku Midoriya"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/5/5b/Slayer_ep1.jpg", q:"Bu anime karakteri kimdir?", options:["Zenitsu Agatsuma","Inosuke Hashibira","Giyu Tomioka","Tanjiro Kamado"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/0/0d/Monkey_D_Luffy.png", q:"Bu anime karakteri kimdir?", options:["Monkey D. Luffy","Roronoa Zoro","Nami","Sanji"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/8/8e/Goku_Dragon_Ball_Z.png", q:"Bu anime karakteri kimdir?", options:["Vegeta","Gohan","Goku","Piccolo"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/0/06/Eren_Jaeger.png", q:"Bu anime karakteri kimdir?", options:["Levi Ackerman","Armin Arlert","Mikasa Ackerman","Eren Yeager"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/46/Deku_My_Hero_Academia.png", q:"Bu anime karakteri kimdir?", options:["Katsuki Bakugo","Shoto Todoroki","Izuku Midoriya","Tenya Iida"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/c/c7/Edward_Elric_anime.png", q:"Bu anime karakteri kimdir?", options:["Roy Mustang","Alphonse Elric","Edward Elric","Envy"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/2/2c/Killua_Zoldyck.png", q:"Bu anime karakteri kimdir?", options:["Gon Freecss","Killua Zoldyck","Kurapika","Leorio"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/1/1f/Light_Yagami.png", q:"Bu anime karakteri kimdir?", options:["L Lawliet","Near","Mello","Light Yagami"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/2/27/Ichigo_kurosaki.png", q:"Bu anime karakteri kimdir?", options:["Rukia Kuchiki","Renji Abarai","Byakuya Kuchiki","Ichigo Kurosaki"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/e/e2/Satoru_Gojo.png", q:"Bu anime karakteri kimdir?", options:["Yuji Itadori","Megumi Fushiguro","Nobara Kugisaki","Satoru Gojo"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/3/35/Spike_Spiegel_Cowboy_Bebop.jpg", q:"Bu anime karakteri kimdir?", options:["Jet Black","Spike Spiegel","Vicious","Faye Valentine"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/0/07/Shinji_Ikari.png", q:"Bu anime karakteri kimdir?", options:["Rei Ayanami","Asuka Langley","Kaworu Nagisa","Shinji Ikari"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/a7/Natsu_Dragneel.png", q:"Bu anime karakteri kimdir?", options:["Gray Fullbuster","Erza Scarlet","Natsu Dragneel","Lucy Heartfilia"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/47/Thorfinn_Vinland_Saga.png", q:"Bu anime karakteri kimdir?", options:["Askeladd","Bjorn","Canute","Thorfinn"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/3/35/Subaru_Natsuki.png", q:"Bu anime karakteri kimdir?", options:["Emilia","Rem","Ram","Subaru Natsuki"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/d/db/Shigeo_Kageyama_Mob.png", q:"Bu anime karakteri kimdir?", options:["Reigen Arataka","Ritsu Kageyama","Dimple","Shigeo Kageyama"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/2/26/Levi_Ackerman.png", q:"Bu anime karakteri kimdir?", options:["Erwin Smith","Hange Zoë","Levi Ackerman","Mike Zacharias"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/5/5e/Ken_Kaneki.png", q:"Bu anime karakteri kimdir?", options:["Touka Kirishima","Hideyoshi Nagachika","Rize Kamishiro","Ken Kaneki"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/9/99/Shoyo_Hinata.png", q:"Bu anime karakteri kimdir?", options:["Tobio Kageyama","Kei Tsukishima","Shoyo Hinata","Ryunosuke Tanaka"], answer:2 },
+  ],
+
+  "Satranç oyuncuları": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Magnus_Carlsen_-_Nam_2019_%28cropped%29.jpg/440px-Magnus_Carlsen_-_Nam_2019_%28cropped%29.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Fabiano Caruana","Hikaru Nakamura","Ding Liren","Magnus Carlsen"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Garry_Kasparov_at_the_Tradewise_Gibraltar_Chess_Festival_2015_%28cropped%29.jpg/440px-Garry_Kasparov_at_the_Tradewise_Gibraltar_Chess_Festival_2015_%28cropped%29.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Garry Kasparov","Anatoly Karpov","Boris Spassky","Mikhail Tal"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Bobby_Fischer_1960_in_Leipzig.jpg/440px-Bobby_Fischer_1960_in_Leipzig.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Mikhail Botvinnik","Bobby Fischer","Paul Morphy","Emanuel Lasker"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Fabiano_Caruana_-_Zurich_Chess_Challenge_2014_%28cropped%29.jpg/440px-Fabiano_Caruana_-_Zurich_Chess_Challenge_2014_%28cropped%29.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Wesley So","Levon Aronian","Fabiano Caruana","Maxime Vachier-Lagrave"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Hikaru_Nakamura_in_2022.jpg/440px-Hikaru_Nakamura_in_2022.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Hikaru Nakamura","Sam Sevian","Leinier Dominguez","Hans Niemann"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Viswanathan_Anand_at_the_Chess_Club_and_Scholastic_Center_of_Saint_Louis_%28cropped%29.jpg/440px-Viswanathan_Anand_at_the_Chess_Club_and_Scholastic_Center_of_Saint_Louis_%28cropped%29.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Pentala Harikrishna","Krishnan Sasikiran","Viswanathan Anand","Vidit Gujrathi"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Alireza_Firouzja_in_2022.jpg/440px-Alireza_Firouzja_in_2022.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Nodirbek Abdusattorov","Rameshbabu Praggnanandhaa","Alireza Firouzja","Vincent Keymer"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Ding_Liren_in_2019.jpg/440px-Ding_Liren_in_2019.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Wei Yi","Yu Yangyi","Bu Xiangzhi","Ding Liren"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Anatoly_Karpov_in_2016.jpg/440px-Anatoly_Karpov_in_2016.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Boris Spassky","Anatoly Karpov","Mikhail Tal","Viktor Korchnoi"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Wesley_So_in_2017.jpg/440px-Wesley_So_in_2017.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Levon Aronian","Sergey Karjakin","Jan-Krzysztof Duda","Wesley So"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Levon_Aronian_in_2021.jpg/440px-Levon_Aronian_in_2021.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Levon Aronian","Teimour Radjabov","Shakhriyar Mamedyarov","Anish Giri"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Ian_Nepomniachtchi_in_2022.jpg/440px-Ian_Nepomniachtchi_in_2022.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Alexander Grischuk","Dmitry Andreikin","Peter Svidler","Ian Nepomniachtchi"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Anish_Giri_-_Tata_Steel_Chess_2020.jpg/440px-Anish_Giri_-_Tata_Steel_Chess_2020.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Maxime Vachier-Lagrave","Anish Giri","Richard Rapport","Vidit Gujrathi"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Pragg_2022.jpg/440px-Pragg_2022.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Nihal Sarin","Arjun Erigaisi","D. Gukesh","Rameshbabu Praggnanandhaa"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Judith_Polgar_2007.jpg/440px-Judith_Polgar_2007.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Hou Yifan","Alexandra Kosteniuk","Judit Polgár","Mariya Muzychuk"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Boris_Spassky_in_2010.jpg/440px-Boris_Spassky_in_2010.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Vasily Smyslov","Mikhail Botvinnik","Tigran Petrosian","Boris Spassky"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Mikhail_Tal_1961.jpg/440px-Mikhail_Tal_1961.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Paul Keres","David Bronstein","Mikhail Tal","Samuel Reshevsky"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Nodirbek_Abdusattorov_%28cropped%29.jpg/440px-Nodirbek_Abdusattorov_%28cropped%29.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Javokhir Sindarov","Shamsiddin Vokhidov","Nodirbek Abdusattorov","Jahongir Vakhidov"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Gukesh_D_in_2023.jpg/440px-Gukesh_D_in_2023.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Arjun Erigaisi","Nihal Sarin","Leon Mendonca","D. Gukesh"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Vincent_Keymer_in_2023.jpg/440px-Vincent_Keymer_in_2023.jpg", q:"Bu satranç oyuncusu kimdir?", options:["Hans Niemann","Christopher Yoo","Vincent Keymer","Volodar Murzin"], answer:2 },
+  ],
+
+  "İnternet memeleri": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/9/9a/Trollface_non-free.png", q:"Bu meme'in adı nedir?", options:["Rage Face","Forever Alone","Trollface","Cereal Guy"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/5/5f/Original_Doge_meme.jpg", q:"Bu meme'in adı nedir?", options:["Such Wow","Very Dog","Doge","Shibe"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Pepe_the_frog_show_me_what_you_got_meme.png/440px-Pepe_the_frog_show_me_what_you_got_meme.png", q:"Bu meme karakterinin adı nedir?", options:["Kermit","Frog Boy","Rare Pepe","Pepe the Frog"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Harambe_at_the_Cincinnati_Zoo.jpg/440px-Harambe_at_the_Cincinnati_Zoo.jpg", q:"Bu efsanevi hayvanın adı nedir?", options:["Koko","Bokito","Bobo","Harambe"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/4f/Lolcat_in_administratio.jpg/440px-Lolcat_in_administratio.jpg", q:"Bu meme türünün adı nedir?", options:["Cat Macro","Lolcat","Ceiling Cat","Cat Meme"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Rick_Astley_Tivoli_Gardens.jpg/440px-Rick_Astley_Tivoli_Gardens.jpg", q:"Rickrolling'de hangi şarkıcının videosu çıkar?", options:["Michael Jackson","Rick Astley","George Michael","Wham!"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Nyan_cat_250px_frame.PNG/440px-Nyan_cat_250px_frame.PNG", q:"Bu meme'in adı nedir?", options:["Pop Tart Cat","Cosmic Kitty","Rainbow Cat","Nyan Cat"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Salt_Bae_%28Nusret_G%C3%B6k%C3%A7e%29.jpg/440px-Salt_Bae_%28Nusret_G%C3%B6k%C3%A7e%29.jpg", q:"Bu viral fenomenin lakabı nedir?", options:["Spice Man","Chef Boy","Salt Bae","Pepper King"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bij.jpg", q:"Bu meme'in adı nedir?", options:["Philosoraptor","Conspiracy Keanu","Success Kid","One Does Not Simply"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bgs.jpg", q:"Bu meme'in adı nedir?", options:["Hipster Barista","First World Problems","Good Guy Greg","Bad Luck Brian"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bhf.jpg", q:"Bu meme'in adı nedir?", options:["Scumbag Steve","Overly Attached Girlfriend","Good Guy Greg","Sudden Clarity Clarence"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bgw.jpg", q:"Bu meme'in adı nedir?", options:["Forever Alone","Rage Guy","Crying Jordan","Socially Awkward Penguin"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bgt.jpg", q:"Bu meme'in adı nedir?", options:["Lol Guy","Derp","Y U NO","Forever Alone"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bil.jpg", q:"Bu meme'in adı nedir?", options:["Skeptical Third World Kid","Third World Success Kid","Overly Suave Kid","First World Kid"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bib.jpg", q:"Bu meme'in adı nedir?", options:["Confession Tiger","Advice Dog","Courage Wolf","Insanity Wolf"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1b54.jpg", q:"Bu meme'in adı nedir?", options:["Philosoraptor","Science Cat","Conspiracy Keanu","Smart Dinosaur"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bh8.jpg", q:"Bu meme'in adı nedir?", options:["Smug Wojak","NPC Meme","Chad","Feels Good Man"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bc6.jpg", q:"Bu meme'in adı nedir?", options:["Overly Manly Man","Ridiculously Photogenic Guy","Success Kid","Most Interesting Man"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bh6.jpg", q:"Bu meme'in adı nedir?", options:["Scumbag Steve","Bad Luck Brian","Idiot Nerd Girl","Courage Wolf"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://i.imgflip.com/1bhk.jpg", q:"Bu meme'in adı nedir?", options:["Chemistry Cat","Grumpy Cat","Business Cat","Lil Bub"], answer:0 },
+  ],
+
+  "İngilizce": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Red_Apple.jpg/440px-Red_Apple.jpg", q:"Bu nesnenin İngilizcesi nedir?", options:["Orange","Pear","Apple","Peach"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/A_small_cup_of_coffee.JPG/440px-A_small_cup_of_coffee.JPG", q:"Bu nesnenin İngilizcesi nedir?", options:["Tea","Coffee","Juice","Milk"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/440px-Cat03.jpg", q:"Bu hayvanın İngilizcesi nedir?", options:["Dog","Rabbit","Fox","Cat"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/440px-Cute_dog.jpg", q:"Bu hayvanın İngilizcesi nedir?", options:["Cat","Wolf","Dog","Fox"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dog_Breeds.jpg/440px-Dog_Breeds.jpg", q:"Bu nesnenin İngilizcesi nedir?", options:["Fork","Spoon","Knife","Chopsticks"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/Fresh_made_bread_05.jpg/440px-Fresh_made_bread_05.jpg", q:"Bu nesnenin İngilizcesi nedir?", options:["Cake","Cookie","Bread","Muffin"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Good_Food_Display_-_NCI_Visuals_Online.jpg/440px-Good_Food_Display_-_NCI_Visuals_Online.jpg", q:"Bu kavramın İngilizcesi nedir?", options:["Junk Food","Fast Food","Healthy Food","Street Food"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Airplane_silhouette.jpg/440px-Airplane_silhouette.jpg", q:"Bu nesnenin İngilizcesi nedir?", options:["Helicopter","Rocket","Airplane","Glider"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Bicycle_icon.svg/440px-Bicycle_icon.svg.png", q:"Bu nesnenin İngilizcesi nedir?", options:["Motorcycle","Scooter","Bicycle","Tricycle"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/SNice.svg/440px-SNice.svg.png", q:"Bu yüz ifadesinin İngilizcesi nedir?", options:["Sad face","Angry face","Smiley face","Surprised face"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/440px-PNG_transparency_demonstration_1.png", q:"Bu nesnenin İngilizcesi nedir?", options:["Dice","Cube","Box","Block"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Simple_flower.svg/440px-Simple_flower.svg.png", q:"Bu nesnenin İngilizcesi nedir?", options:["Leaf","Tree","Grass","Flower"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Lion_waiting_in_Namibia.jpg/440px-Lion_waiting_in_Namibia.jpg", q:"Bu hayvanın İngilizcesi nedir?", options:["Tiger","Leopard","Lion","Cheetah"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Elephant_in_Botswana.jpg/440px-Elephant_in_Botswana.jpg", q:"Bu hayvanın İngilizcesi nedir?", options:["Hippo","Rhino","Elephant","Giraffe"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Ski_trail_rating_symbol-black_diamond.svg/440px-Ski_trail_rating_symbol-black_diamond.svg.png", q:"Bu şeklin İngilizcesi nedir?", options:["Square","Rectangle","Heart","Diamond"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Sunset_at_the_sea_in_Valencia.jpg/440px-Sunset_at_the_sea_in_Valencia.jpg", q:"Bu doğa olayının İngilizcesi nedir?", options:["Sunrise","Moonrise","Sunset","Eclipse"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Above_Gotham.jpg/440px-Above_Gotham.jpg", q:"Bu kavramın İngilizcesi nedir?", options:["Village","Town","City","Suburb"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Empire_State_Building_%28aerial_view%29.jpg/440px-Empire_State_Building_%28aerial_view%29.jpg", q:"Bu yapının İngilizcesi nedir?", options:["Bridge","Tower","Building","Skyscraper"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Spaghetti_bolognese_%28hozinja%29.jpg/440px-Spaghetti_bolognese_%28hozinja%29.jpg", q:"Bu yemeğin İngilizcesi nedir?", options:["Pasta","Noodles","Spaghetti","Ramen"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Hapus_Mango.jpg/440px-Hapus_Mango.jpg", q:"Bu meyvenin İngilizcesi nedir?", options:["Papaya","Pineapple","Guava","Mango"], answer:3 },
+  ],
+
+  "Bilgisayar bileşenleri": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Intel_Core_i9_9900K.jpg/440px-Intel_Core_i9_9900K.jpg", q:"Bu bileşen nedir?", options:["GPU","RAM","CPU","SSD"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/RAM_n.jpg/440px-RAM_n.jpg", q:"Bu bileşen nedir?", options:["SSD","ROM","CPU","RAM"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Nvidia_RTX_4090.jpg/440px-Nvidia_RTX_4090.jpg", q:"Bu bileşen nedir?", options:["CPU","Anakart","GPU (Ekran Kartı)","PSU"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Seagate_ST33232A_hard_disk_inner_view.jpg/440px-Seagate_ST33232A_hard_disk_inner_view.jpg", q:"Bu bileşen nedir?", options:["SSD","Optik Sürücü","HDD (Sabit Disk)","Flash Bellek"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Samsung_EVO_SSD.jpg/440px-Samsung_EVO_SSD.jpg", q:"Bu bileşen nedir?", options:["HDD","USB Bellek","RAM","SSD"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/ATX_PS2_main_power_connector.jpg/440px-ATX_PS2_main_power_connector.jpg", q:"Bu bileşen nedir?", options:["Anakart","GPU","CPU","PSU (Güç Kaynağı)"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/13a_Intel_Board.jpg/440px-13a_Intel_Board.jpg", q:"Bu bileşen nedir?", options:["GPU","CPU","RAM","Anakart"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Coolermaster_Hyper_212.jpg/440px-Coolermaster_Hyper_212.jpg", q:"Bu bileşen nedir?", options:["GPU Fanı","PSU Fanı","CPU Soğutucusu","Kasa Fanı"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/M.2_NVMe_SSD.jpg/440px-M.2_NVMe_SSD.jpg", q:"Bu bileşen nedir?", options:["PCIe Kart","RAM Modülü","M.2 NVMe SSD","USB Hub"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/BIOS_chip.jpg/440px-BIOS_chip.jpg", q:"Bu bileşen nedir?", options:["RAM Çipi","CPU Çipi","GPU Çipi","BIOS Çipi"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Usb_connectors.JPG/440px-Usb_connectors.JPG", q:"Bu port türü nedir?", options:["HDMI","DisplayPort","Thunderbolt","USB"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/HDMI_connector-female_PNr%C2%B00057.jpg/440px-HDMI_connector-female_PNr%C2%B00057.jpg", q:"Bu port türü nedir?", options:["DisplayPort","USB-C","VGA","HDMI"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Thermal_grease_on_processor.jpg/440px-Thermal_grease_on_processor.jpg", q:"Bu nedir?", options:["Lehim","Yapıştırıcı","Termal Macun","Silikon"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Intel-logo.svg/440px-Intel-logo.svg.png", q:"Bu hangi CPU üreticisinin logosudur?", options:["AMD","Qualcomm","ARM","Intel"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/AMD_Logo.svg/440px-AMD_Logo.svg.png", q:"Bu hangi CPU/GPU üreticisinin logosudur?", options:["Intel","Nvidia","ARM","AMD"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Nvidia_logo.svg/440px-Nvidia_logo.svg.png", q:"Bu hangi GPU üreticisinin logosudur?", options:["AMD","Intel","Qualcomm","Nvidia"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Liquid_cooling_system.jpg/440px-Liquid_cooling_system.jpg", q:"Bu soğutma sistemi türü nedir?", options:["Hava Soğutması","Isı Borusu","Sıvı Soğutma (AIO)","Pasif Soğutma"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/VGA_connector.jpg/440px-VGA_connector.jpg", q:"Bu port türü nedir?", options:["HDMI","DVI","DisplayPort","VGA"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Pcie_slots.jpg/440px-Pcie_slots.jpg", q:"Bu yuva türü nedir?", options:["RAM Yuvası","CPU Soketi","PCIe Yuvası","M.2 Yuvası"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Gaming_PC_build.jpg/440px-Gaming_PC_build.jpg", q:"Bu nedir?", options:["İş İstasyonu","Sunucu","Laptop","Gaming PC"], answer:3 },
+  ],
+
+  "Bilgisayar oyunları": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/5/51/Minecraft_cover.png", q:"Bu oyunun adı nedir?", options:["Terraria","Roblox","Fortnite","Minecraft"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/1/13/League_of_Legends_cover.jpg", q:"Bu oyunun adı nedir?", options:["Dota 2","Smite","Heroes of the Storm","League of Legends"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/6/68/Counter-Strike_Global_Offensive_logo.png/440px-Counter-Strike_Global_Offensive_logo.png", q:"Bu oyunun adı nedir?", options:["Valorant","Rainbow Six Siege","Battlefield","Counter-Strike"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/0/0c/Witcher_3_cover_art.jpg", q:"Bu oyunun adı nedir?", options:["Dragon Age","Dark Souls","Elden Ring","The Witcher 3"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/b/b6/Image_created_with_a_mobile_phone.png", q:"Bu oyunun adı nedir?", options:["Cyberpunk 2077","GTA V","Red Dead Redemption 2","Forza Horizon"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/a7/Fortnite_F_lettermark_logo.png", q:"Bu oyunun adı nedir?", options:["PUBG","Apex Legends","Warzone","Fortnite"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/e/e2/Dark_Souls_II_cover.jpg", q:"Bu oyun serisi hangisidir?", options:["Elden Ring","Bloodborne","Sekiro","Dark Souls"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/a3/Half-Life_Cover_Art.jpg", q:"Bu oyunun adı nedir?", options:["Portal","Doom","Quake","Half-Life"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/44/The_Legend_of_Zelda_Ocarina_of_Time_box_art.png", q:"Bu oyun serisi hangisidir?", options:["Metroid","Kirby","Super Mario","The Legend of Zelda"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/c/c6/Cyberpunk_2077_box_art.jpg", q:"Bu oyunun adı nedir?", options:["Deus Ex","Watch Dogs","Prey","Cyberpunk 2077"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/f/f9/Overwatch_cover_art.jpg", q:"Bu oyunun adı nedir?", options:["Paladins","Valorant","Team Fortress 2","Overwatch"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/4d/The_Last_of_Us_-_PS3.jpg", q:"Bu oyunun adı nedir?", options:["Uncharted","Days Gone","Death Stranding","The Last of Us"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/b/b8/Elden_Ring_Box_art.jpg", q:"Bu oyunun adı nedir?", options:["Dark Souls 3","Sekiro","Bloodborne","Elden Ring"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/a6/Doom_2016_cover_art.png", q:"Bu oyunun adı nedir?", options:["Quake","Wolfenstein","Heretic","DOOM (2016)"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/5/5e/Grand_Theft_Auto_V.png", q:"Bu oyunun adı nedir?", options:["Saints Row","Mafia","Just Cause","Grand Theft Auto V"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/7/70/God_of_War_4_cover.jpg", q:"Bu oyunun adı nedir?", options:["Kratos Chronicles","Titan Fall","Ascension","God of War"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/0/0d/PUBG_Mobile.jpg", q:"Bu oyunun adı nedir?", options:["Fortnite","Apex Legends","Call of Duty Mobile","PUBG"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/45/Stardew_Valley_-_Cover_Art.png", q:"Bu oyunun adı nedir?", options:["Harvest Moon","Animal Crossing","Farming Simulator","Stardew Valley"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/2/2b/Dota_2_logo.png", q:"Bu oyunun adı nedir?", options:["League of Legends","Heroes of the Storm","Smite","Dota 2"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/2/20/Pac-Man_arcade_game_logo.png", q:"Bu oyunun adı nedir?", options:["Galaga","Space Invaders","Tetris","Pac-Man"], answer:3 },
+  ],
+
+  "Türk popçular": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Tarkan_in_2019.jpg/440px-Tarkan_in_2019.jpg", q:"Bu Türk sanatçı kimdir?", options:["Serdar Ortaç","Kenan Doğulu","Mustafa Sandal","Tarkan"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Sertab_Erener_2017.jpg/440px-Sertab_Erener_2017.jpg", q:"Bu Türk sanatçı kimdir?", options:["Gülşen","Hande Yener","Sertab Erener","Demet Akalın"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Hadise_2019.jpg/440px-Hadise_2019.jpg", q:"Bu Türk sanatçı kimdir?", options:["İrem Derici","Aleyna Tilki","Tuğçe Kandemir","Hadise"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Gulsen_2022.jpg/440px-Gulsen_2022.jpg", q:"Bu Türk sanatçı kimdir?", options:["Demet Akalın","Hande Yener","Gülşen","Sıla"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Mustafa_Sandal.jpg/440px-Mustafa_Sandal.jpg", q:"Bu Türk sanatçı kimdir?", options:["Tarkan","Kenan Doğulu","Serdar Ortaç","Mustafa Sandal"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Kenan_Dogulu_2018.jpg/440px-Kenan_Dogulu_2018.jpg", q:"Bu Türk sanatçı kimdir?", options:["Mustafa Sandal","Murat Boz","Kenan Doğulu","Tarkan"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Hande_Yener_2022.jpg/440px-Hande_Yener_2022.jpg", q:"Bu Türk sanatçı kimdir?", options:["Sertab Erener","Gülşen","Demet Akalın","Hande Yener"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Aleyna_Tilki_2019.jpg/440px-Aleyna_Tilki_2019.jpg", q:"Bu Türk sanatçı kimdir?", options:["Zeynep Bastık","Tuğçe Kandemir","Ayşe Hatun Önal","Aleyna Tilki"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Demet_Akalin_2018.jpg/440px-Demet_Akalin_2018.jpg", q:"Bu Türk sanatçı kimdir?", options:["Gülşen","Sıla","Hande Yener","Demet Akalın"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Mabel_Matiz_2019.jpg/440px-Mabel_Matiz_2019.jpg", q:"Bu Türk sanatçı kimdir?", options:["Cem Adrian","Mabel Matiz","Sıla","Semicenk"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Irem_Derici_2017.jpg/440px-Irem_Derici_2017.jpg", q:"Bu Türk sanatçı kimdir?", options:["Aleyna Tilki","Ayşe Hatun Önal","Zeynep Bastık","İrem Derici"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Serdar_Ortac_2018.jpg/440px-Serdar_Ortac_2018.jpg", q:"Bu Türk sanatçı kimdir?", options:["Murat Boz","Kenan Doğulu","Serdar Ortaç","Mustafa Sandal"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Sila_2018.jpg/440px-Sila_2018.jpg", q:"Bu Türk sanatçı kimdir?", options:["Gülşen","Hande Yener","Sıla","Demet Akalın"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Murat_Boz_2019.jpg/440px-Murat_Boz_2019.jpg", q:"Bu Türk sanatçı kimdir?", options:["Kenan Doğulu","Murat Boz","Serdar Ortaç","Tarkan"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Cem_Adrian_2018.jpg/440px-Cem_Adrian_2018.jpg", q:"Bu Türk sanatçı kimdir?", options:["Mabel Matiz","Semicenk","Cem Adrian","Sıla"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Zeynep_Bastik_2021.jpg/440px-Zeynep_Bastik_2021.jpg", q:"Bu Türk sanatçı kimdir?", options:["İrem Derici","Tuğçe Kandemir","Ayşe Hatun Önal","Zeynep Bastık"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Ayse_Hatun_Onal_2020.jpg/440px-Ayse_Hatun_Onal_2020.jpg", q:"Bu Türk sanatçı kimdir?", options:["Zeynep Bastık","Aleyna Tilki","Ayşe Hatun Önal","Tuğçe Kandemir"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Nil_Karaibrahimgil_2017.jpg/440px-Nil_Karaibrahimgil_2017.jpg", q:"Bu Türk sanatçı kimdir?", options:["Sıla","Nil Karaibrahimgil","Gülşen","Demet Akalın"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Semicenk_2020.jpg/440px-Semicenk_2020.jpg", q:"Bu Türk sanatçı kimdir?", options:["Mabel Matiz","Cem Adrian","Semicenk","Sıla"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Manga_band_2019.jpg/440px-Manga_band_2019.jpg", q:"Bu Türk grubu hangisidir?", options:["Mor ve Ötesi","Athena","Redd","Manga"], answer:3 },
+  ],
+
+  "Filmler": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/8/8a/The_Dark_Knight_theatrical_poster.jpg", q:"Bu film hangisidir?", options:["Batman Begins","Batman v Superman","The Dark Knight Rises","The Dark Knight"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/1/18/Titanic_%281997_film%29_poster.png", q:"Bu film hangisidir?", options:["The Poseidon Adventure","Waterworld","Leviathan","Titanic"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/a4/Godfather_ver1.jpg", q:"Bu film hangisidir?", options:["Scarface","Goodfellas","Casino","The Godfather"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/2/2e/Inception_%282010%29_theatrical_poster.jpg", q:"Bu film hangisidir?", options:["Interstellar","The Matrix","Tenet","Inception"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/6/6c/Forrest_Gump_poster.jpg", q:"Bu film hangisidir?", options:["Cast Away","The Green Mile","Philadelphia","Forrest Gump"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/0/0c/Pulp_Fiction_%281994%29_poster.jpg", q:"Bu film hangisidir?", options:["Reservoir Dogs","Jackie Brown","Kill Bill","Pulp Fiction"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/3/30/Matrix_reloaded_ver6.jpg", q:"Bu film serisi hangisidir?", options:["Inception","Interstellar","Blade Runner","The Matrix"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/3/3b/Schindler%27s_List_movie.jpg", q:"Bu film hangisidir?", options:["The Pianist","Life is Beautiful","Sophie's Choice","Schindler's List"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/f/f3/Interstellar_Film_Poster.jpg", q:"Bu film hangisidir?", options:["Gravity","The Martian","Contact","Interstellar"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/ab/Parasite_%282019_film%29.png", q:"Bu film hangisidir?", options:["Oldboy","Train to Busan","Snowpiercer","Parasite"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/8/8a/The_Shawshank_Redemption-Movie-Poster.jpg", q:"Bu film hangisidir?", options:["The Green Mile","Frank Darabont","Se7en","The Shawshank Redemption"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/8/8d/Fight_Club_poster.jpg", q:"Bu film hangisidir?", options:["Se7en","Zodiac","Gone Girl","Fight Club"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/f/f2/Gladiator_%282000_film_poster%29.png", q:"Bu film hangisidir?", options:["Braveheart","Troy","300","Gladiator"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/b/b2/Goodfellas.jpg", q:"Bu film hangisidir?", options:["Casino","The Irishman","Scarface","Goodfellas"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/8/86/Silence_of_the_lambs_poster.jpg", q:"Bu film hangisidir?", options:["Hannibal","Red Dragon","Manhunter","The Silence of the Lambs"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/a/a4/No_Country_for_Old_Men_poster.jpg", q:"Bu film hangisidir?", options:["Fargo","Blood Simple","True Grit","No Country for Old Men"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/4a/Oppenheimer_%28film%29.jpg", q:"Bu film hangisidir?", options:["Dunkirk","Tenet","The Dark Knight","Oppenheimer"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/8/8e/Dune_Part_One_%282021%29.jpg", q:"Bu film hangisidir?", options:["Arrival","Blade Runner 2049","Annihilation","Dune"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/4/4e/The_Revenant_2015_film_poster.jpg", q:"Bu film hangisidir?", options:["The Grey","Into the Wild","Alive","The Revenant"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/b/bd/Avatar-Teaser-Poster.jpg", q:"Bu film hangisidir?", options:["Aliens","Dune","Guardians of the Galaxy","Avatar"], answer:3 },
+  ],
+
+  "Eurovision şarkıları": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/ABBA_-_TopPop_1974_5.png/440px-ABBA_-_TopPop_1974_5.png", q:"Bu sanatçı Eurovision'da hangi şarkıyla kazandı?", options:["Fernando","Dancing Queen","Mamma Mia","Waterloo"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Sertab_Erener.jpg/440px-Sertab_Erener.jpg", q:"Sertab Erener Eurovision 2003'te hangi şarkıyı söyledi?", options:["For Real","Diva","Ne Ağlarsın","Everyway That I Can"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/C%C3%A9line_Dion_in_2012.jpg/440px-C%C3%A9line_Dion_in_2012.jpg", q:"Celine Dion Eurovision'da hangi ülkeyi temsil etti?", options:["Fransa","Belçika","Kanada","İsviçre"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Lordi_-_Hard_Rock_Hallelujah.jpg/440px-Lordi_-_Hard_Rock_Hallelujah.jpg", q:"Lordi Eurovision 2006'da hangi şarkıyla kazandı?", options:["Monster","Devil is a Loser","Blood Red Sandman","Hard Rock Hallelujah"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Conchita_Wurst_Eurovision_2014.jpg/440px-Conchita_Wurst_Eurovision_2014.jpg", q:"Conchita Wurst Eurovision'da hangi ülkeyi temsil etti?", options:["Almanya","İsviçre","Hollanda","Avusturya"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Netta_Barzilai_at_Eurovision_2018.jpg/440px-Netta_Barzilai_at_Eurovision_2018.jpg", q:"Netta hangi şarkıyla Eurovision'u kazandı?", options:["Dancing","Jump","Boom","Toy"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/M%C3%A5neskin_-_Eurovision_2021.jpg/440px-M%C3%A5neskin_-_Eurovision_2021.jpg", q:"Måneskin Eurovision 2021'de hangi şarkıyla kazandı?", options:["Beggin","I Wanna Be Your Slave","Zitti e buoni","Supermodel"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Salvador_Sobral_Eurovision_2017.jpg/440px-Salvador_Sobral_Eurovision_2017.jpg", q:"Salvador Sobral hangi ülkeyi temsil etti?", options:["İspanya","Brezilya","İtalya","Portekiz"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Alexander_Rybak_-_Eurovision_2009.jpg/440px-Alexander_Rybak_-_Eurovision_2009.jpg", q:"Alexander Rybak Eurovision'da hangi ülkeyi temsil etti?", options:["İsveç","Danimarka","Finlandiya","Norveç"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Lena_Meyer-Landrut_Eurovision_2010.jpg/440px-Lena_Meyer-Landrut_Eurovision_2010.jpg", q:"Lena Meyer-Landrut hangi ülkeyi temsil etti?", options:["Avusturya","İsviçre","Hollanda","Almanya"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Dami_Im_Eurovision_2016.jpg/440px-Dami_Im_Eurovision_2016.jpg", q:"Dami Im hangi ülkeyi temsil etti?", options:["Yeni Zelanda","Kanada","İngiltere","Avustralya"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Eleni_Foureira_Eurovision_2018.jpg/440px-Eleni_Foureira_Eurovision_2018.jpg", q:"Eleni Foureira hangi ülkeyi temsil etti?", options:["Yunanistan","Arnavutluk","Kosova","Kıbrıs"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Kalush_Orchestra_Eurovision_2022.jpg/440px-Kalush_Orchestra_Eurovision_2022.jpg", q:"Kalush Orchestra Eurovision 2022'de hangi ülkeyi temsil etti?", options:["Polonya","Moldova","Rusya","Ukrayna"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Loreen_Eurovision_2023.jpg/440px-Loreen_Eurovision_2023.jpg", q:"Loreen Eurovision 2023'te hangi ülkeyi temsil etti?", options:["Danimarka","Norveç","Finlandiya","İsveç"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Dana_International_Eurovision_1998.jpg/440px-Dana_International_Eurovision_1998.jpg", q:"Dana International hangi ülkeyi temsil etti?", options:["Lübnan","Ürdün","Mısır","İsrail"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Verka_Serduchka_Eurovision_2007.jpg/440px-Verka_Serduchka_Eurovision_2007.jpg", q:"Verka Serduchka hangi ülkeyi temsil etti?", options:["Rusya","Belarus","Moldova","Ukrayna"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Esc2004_final_ruslana.jpg/440px-Esc2004_final_ruslana.jpg", q:"Ruslana Eurovision 2004'te hangi ülkeyi temsil etti?", options:["Rusya","Belarus","Moldova","Ukrayna"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Helena_Paparizou_Eurovision_2005.jpg/440px-Helena_Paparizou_Eurovision_2005.jpg", q:"Helena Paparizou Eurovision 2005'te hangi ülkeyi temsil etti?", options:["Kıbrıs","Arnavutluk","Makedonya","Yunanistan"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Jamala_Eurovision_2016.jpg/440px-Jamala_Eurovision_2016.jpg", q:"Jamala Eurovision 2016'da hangi ülkeyi temsil etti?", options:["Rusya","Belarus","Moldova","Ukrayna"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Cornelia_Jakobs_Eurovision_2022.jpg/440px-Cornelia_Jakobs_Eurovision_2022.jpg", q:"Cornelia Jakobs Eurovision 2022'de hangi ülkeyi temsil etti?", options:["Danimarka","Norveç","Finlandiya","İsveç"], answer:3 },
+  ],
+
+  "Esport takımları": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/ce/Cloud9_esports_logo.svg/440px-Cloud9_esports_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Team Liquid","100 Thieves","FaZe Clan","Cloud9"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/5c/Team_Liquid_logo.svg/440px-Team_Liquid_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Cloud9","Evil Geniuses","Team Liquid","NaVi"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/7/77/Fnatic_logo.svg/440px-Fnatic_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["G2 Esports","Vitality","Fnatic","BIG"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/b/b3/G2_Esports_logo.svg/440px-G2_Esports_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Fnatic","Vitality","BIG","G2 Esports"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/8/8c/Natus_Vincere_logo.svg/440px-Natus_Vincere_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Virtus.pro","Team Spirit","Gambit","NaVi"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/12/T1_esports_logo.svg/440px-T1_esports_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Gen.G","DRX","KT Rolster","T1"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/13/Astralis_logo.svg/440px-Astralis_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Copenhagen Flames","Heroic","NiP","Astralis"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/e/ee/FaZe_Clan_logo.svg/440px-FaZe_Clan_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["100 Thieves","Sentinels","NRG","FaZe Clan"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/b/b7/TSM_Logo.svg/440px-TSM_Logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["CLG","Immortals","Echo Fox","TSM"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/40/Evil_Geniuses_logo.svg/440px-Evil_Geniuses_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Team Liquid","Alliance","Team Secret","Evil Geniuses"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/Sentinels_logo.svg/440px-Sentinels_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["100 Thieves","NRG","LOUD","Sentinels"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/e/e5/Vitality_logo.svg/440px-Vitality_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["G2 Esports","Fnatic","BIG","Vitality"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/0/0e/100_Thieves_logo.svg/440px-100_Thieves_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Sentinels","NRG","Cloud9","100 Thieves"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a1/Team_Spirit_logo.svg/440px-Team_Spirit_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Virtus.pro","Gambit","Spirit","Team Spirit"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/cc/NiP_logo.svg/440px-NiP_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Astralis","Heroic","ENCE","NiP"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/0/05/OG_Esports_Logo.svg/440px-OG_Esports_Logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Alliance","Team Secret","Liquid","OG"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/43/LOUD_esports_logo.svg/440px-LOUD_esports_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["Furia","paiN Gaming","MIBR","LOUD"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a2/Gen.G_Esports_logo.svg/440px-Gen.G_Esports_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["T1","DRX","KT Rolster","Gen.G"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/45/FURIA_Esports_logo.svg/440px-FURIA_Esports_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["LOUD","paiN","MIBR","FURIA"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/2/27/Complexity_Gaming_logo.svg/440px-Complexity_Gaming_logo.svg.png", q:"Bu esport organizasyonu hangisidir?", options:["NRG","Immortals","Dignitas","Complexity Gaming"], answer:3 },
+  ],
+
+  "Fenerli futbolcular": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Alex_de_Souza_2011.jpg/440px-Alex_de_Souza_2011.jpg", q:"Bu Fenerbahçe efsanesi kimdir?", options:["Roberto Carlos","Nicolas Anelka","Dirk Kuyt","Alex de Souza"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Roberto_Carlos_2019.jpg/440px-Roberto_Carlos_2019.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Alex","Nobre","Roberto Carlos","Lugano"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Emre_Belozoglu.jpg/440px-Emre_Belozoglu.jpg", q:"Bu Fenerbahçe efsanesi kimdir?", options:["Volkan Demirel","Can Bartu","Emre Belözoğlu","Lefter Küçükandonyadis"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Dirk_Kuyt_2014.jpg/440px-Dirk_Kuyt_2014.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Nicolas Anelka","Stoch","Dirk Kuyt","Moussa Sow"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/Volkan_Demirel_2013.jpg/440px-Volkan_Demirel_2013.jpg", q:"Bu Fenerbahçe efsanesi kimdir?", options:["Rüştü Reçber","Tolga Zengin","Hakan Arıkan","Volkan Demirel"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Nicolas_Anelka_2012.jpg/440px-Nicolas_Anelka_2012.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Roberto Carlos","Alex","Nicolas Anelka","Lugano"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Edin_D%C5%BEeko_2022.jpg/440px-Edin_D%C5%BEeko_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Diego Rossi","Lincoln","Edin Džeko","Michy Batshuayi"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Moussa_Sow_2014.jpg/440px-Moussa_Sow_2014.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Emmanuel Emenike","Ndiaye","Robin van Persie","Moussa Sow"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Robin_van_Persie_2017.jpg/440px-Robin_van_Persie_2017.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Dirk Kuyt","Janssen","Robin van Persie","Stoch"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Miha_Mevlja_2018.jpg/440px-Miha_Mevlja_2018.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Soldado","Szymanski","Miha Mevlja","Crespo"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Sebastian_Szymanski_2022.jpg/440px-Sebastian_Szymanski_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Lincoln","Szymanski","Rossi","Batshuayi"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Michy_Batshuayi_2022.jpg/440px-Michy_Batshuayi_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Edin Džeko","Enner Valencia","Michy Batshuayi","Ferdi Kadıoğlu"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Enner_Valencia_2022.jpg/440px-Enner_Valencia_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Szymanski","Džeko","Batshuayi","Enner Valencia"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Ferdi_Kadioglu_2022.jpg/440px-Ferdi_Kadioglu_2022.jpg", q:"Bu Fenerbahçe'li futbolcu kimdir?", options:["İrfan Can Kahveci","Osayi-Samuel","Bright Osayi","Ferdi Kadıoğlu"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Dusan_Tadic_2022.jpg/440px-Dusan_Tadic_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Szymanski","Džeko","Tadic","Valencia"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Caglar_Soyuncu_2022.jpg/440px-Caglar_Soyuncu_2022.jpg", q:"Bu Fenerbahçe'li futbolcu kimdir?", options:["Jayden Oosterwolde","Attila Szalai","Çağlar Söyüncü","İsmail Yüksek"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Irfan_Can_Kahveci_2022.jpg/440px-Irfan_Can_Kahveci_2022.jpg", q:"Bu Fenerbahçe'li futbolcu kimdir?", options:["Ferdi Kadıoğlu","İsmail Yüksek","İrfan Can Kahveci","Fred"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Fred_Manchester_United_2022.jpg/440px-Fred_Manchester_United_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Szymanski","Tadic","Valencia","Fred"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Jayden_Oosterwolde_2023.jpg/440px-Jayden_Oosterwolde_2023.jpg", q:"Bu Fenerbahçe'li futbolcu kimdir?", options:["Ferdi Kadıoğlu","Attila Szalai","Çağlar Söyüncü","Jayden Oosterwolde"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Attila_Szalai_2022.jpg/440px-Attila_Szalai_2022.jpg", q:"Bu Fenerbahçe'de oynamış futbolcu kimdir?", options:["Söyüncü","Oosterwolde","Mevlja","Attila Szalai"], answer:3 },
+  ],
+
+  "Sitcomlar": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/d/d6/Friends_season_one_cast.jpg", q:"Bu dizi hangisidir?", options:["How I Met Your Mother","Seinfeld","The Office","Friends"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/b/bc/The_Office_US_logo.svg", q:"Bu dizi hangisidir?", options:["Parks and Recreation","30 Rock","Community","The Office"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/11/The_Big_Bang_Theory_logo.svg/440px-The_Big_Bang_Theory_logo.svg.png", q:"Bu dizi hangisidir?", options:["Silicon Valley","Chuck","Scorpion","The Big Bang Theory"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/11/Brooklyn_Nine-Nine_Logo.png/440px-Brooklyn_Nine-Nine_Logo.png", q:"Bu dizi hangisidir?", options:["Parks and Recreation","Brooklyn Nine-Nine","Reno 911!","Superstore"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/0/0e/How_I_Met_Your_Mother_Season_1_DVD.jpg/440px-How_I_Met_Your_Mother_Season_1_DVD.jpg", q:"Bu dizi hangisidir?", options:["Friends","Seinfeld","New Girl","How I Met Your Mother"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/1d/Seinfeld_logo_-_b%26w.png/440px-Seinfeld_logo_-_b%26w.png", q:"Bu dizi hangisidir?", options:["Curb Your Enthusiasm","Comedians","Sein","Seinfeld"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/14/Parks_and_Recreation_season_3_poster.jpg/440px-Parks_and_Recreation_season_3_poster.jpg", q:"Bu dizi hangisidir?", options:["The Office","Community","30 Rock","Parks and Recreation"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/5a/Arrested_Development_Title_Card.jpg/440px-Arrested_Development_Title_Card.jpg", q:"Bu dizi hangisidir?", options:["Schitt's Creek","Succession","Arrested Development","Veep"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/9/97/Schitts_Creek_Title_Card.jpg/440px-Schitts_Creek_Title_Card.jpg", q:"Bu dizi hangisidir?", options:["Arrested Development","Veep","Ted Lasso","Schitt's Creek"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/5e/Community_Title_Card.jpg/440px-Community_Title_Card.jpg", q:"Bu dizi hangisidir?", options:["The Office","30 Rock","Parks and Rec","Community"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Ted_Lasso_logo.png/440px-Ted_Lasso_logo.png", q:"Bu dizi hangisidir?", options:["The Bear","Abbott Elementary","Shrinking","Ted Lasso"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/9/9b/Abbott_Elementary_logo.png/440px-Abbott_Elementary_logo.png", q:"Bu dizi hangisidir?", options:["The Office","Abby's","Staffroom","Abbott Elementary"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/6/6e/Fleabag_title_card.jpg/440px-Fleabag_title_card.jpg", q:"Bu dizi hangisidir?", options:["Catastrophe","Derry Girls","Feel Good","Fleabag"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/12/New_Girl_logo.png/440px-New_Girl_logo.png", q:"Bu dizi hangisidir?", options:["Happy Endings","Raising Hope","Ben and Kate","New Girl"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/7/70/Curb_Your_Enthusiasm.png/440px-Curb_Your_Enthusiasm.png", q:"Bu dizi hangisidir?", options:["Comedians","Seinfeld","Curb Your Enthusiasm","Bored to Death"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/8/8c/What_We_Do_in_the_Shadows_title_card.jpg/440px-What_We_Do_in_the_Shadows_title_card.jpg", q:"Bu dizi hangisidir?", options:["Wellington Paranormal","Flight of the Conchords","What We Do in the Shadows","The IT Crowd"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/51/It%27s_Always_Sunny_in_Philadelphia.png/440px-It%27s_Always_Sunny_in_Philadelphia.png", q:"Bu dizi hangisidir?", options:["The League","Workaholics","Party Down","It's Always Sunny in Philadelphia"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/2/27/The_Bear_title_card.jpg/440px-The_Bear_title_card.jpg", q:"Bu dizi hangisidir?", options:["Chef's Table","Boiling Point","Restaurant","The Bear"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/3/3d/Only_Murders_in_the_Building_logo.png/440px-Only_Murders_in_the_Building_logo.png", q:"Bu dizi hangisidir?", options:["Poker Face","Knives Out","Only Murders in the Building","Columbo"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a5/Ghosts_UK_title_card.jpg/440px-Ghosts_UK_title_card.jpg", q:"Bu İngiliz dizi hangisidir?", options:["Inside No. 9","Upstairs Downstairs","Ghosts (UK)","Horrible Histories"], answer:2 },
+  ],
+
+  "Marka logoları": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/440px-Amazon_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["eBay","Alibaba","Shopify","Amazon"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Apple-logo.png/440px-Apple-logo.png", q:"Bu hangi markanın logosudur?", options:["Microsoft","Google","Samsung","Apple"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/440px-Google_2015_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["Yahoo","Bing","DuckDuckGo","Google"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/440px-Microsoft_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["Apple","IBM","Oracle","Microsoft"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Netflix_2015_logo.svg/440px-Netflix_2015_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["Hulu","HBO","Disney+","Netflix"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Coca-Cola_logo.svg/440px-Coca-Cola_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["Pepsi","Dr Pepper","7UP","Coca-Cola"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/440px-Samsung_Logo.svg.png", q:"Bu hangi markanın logosudur?", options:["LG","Huawei","Sony","Samsung"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/IBM_logo.svg/440px-IBM_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["HP","Dell","Lenovo","IBM"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Adidas_corporate_logo.png/440px-Adidas_corporate_logo.png", q:"Bu hangi markanın logosudur?", options:["Nike","Puma","Reebok","Adidas"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Logo_NIKE.svg/440px-Logo_NIKE.svg.png", q:"Bu hangi markanın logosudur?", options:["Adidas","Puma","Under Armour","Nike"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Mastercard_2019_logo.svg/440px-Mastercard_2019_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["Visa","American Express","PayPal","Mastercard"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Spotify_logo_with_text.svg/440px-Spotify_logo_with_text.svg.png", q:"Bu hangi markanın logosudur?", options:["Apple Music","Tidal","Deezer","Spotify"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Snapchat_logo.svg/440px-Snapchat_logo.svg.png", q:"Bu hangi markanın logosudur?", options:["TikTok","Instagram","WhatsApp","Snapchat"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/440px-WhatsApp.svg.png", q:"Bu hangi markanın logosudur?", options:["Telegram","Signal","Viber","WhatsApp"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Instagram_icon.png/440px-Instagram_icon.png", q:"Bu hangi markanın logosudur?", options:["Snapchat","Pinterest","TikTok","Instagram"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/440px-YouTube_full-color_icon_%282017%29.svg.png", q:"Bu hangi markanın logosudur?", options:["Vimeo","Twitch","Dailymotion","YouTube"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Twitch_icon.svg/440px-Twitch_icon.svg.png", q:"Bu hangi markanın logosudur?", options:["YouTube","Discord","Mixer","Twitch"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Starbucks_Corporation_Logo_2011.svg/440px-Starbucks_Corporation_Logo_2011.svg.png", q:"Bu hangi markanın logosudur?", options:["Costa Coffee","Dunkin","Tim Hortons","Starbucks"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/McDonald%27s_Golden_Arches.svg/440px-McDonald%27s_Golden_Arches.svg.png", q:"Bu hangi markanın logosudur?", options:["Burger King","KFC","Wendy's","McDonald's"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Tiktok_logo.png/440px-Tiktok_logo.png", q:"Bu hangi markanın logosudur?", options:["Instagram","Snapchat","Kwai","TikTok"], answer:3 },
+  ],
+
+  "Yabancı diziler": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/Breaking_Bad_title_card.png/440px-Breaking_Bad_title_card.png", q:"Bu dizi hangisidir?", options:["Better Call Saul","Ozark","Narcos","Breaking Bad"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/d/d8/Game_of_Thrones_title_card.jpg/440px-Game_of_Thrones_title_card.jpg", q:"Bu dizi hangisidir?", options:["The Witcher","Vikings","Barbarians","Game of Thrones"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/8/8e/Stranger_Things_title.png/440px-Stranger_Things_title.png", q:"Bu dizi hangisidir?", options:["Dark","The OA","Manifest","Stranger Things"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/c5/Squid_Game_title.png/440px-Squid_Game_title.png", q:"Bu dizi hangisidir?", options:["Alice in Borderland","All of Us Are Dead","Sweet Home","Squid Game"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/4e/Chernobyl_title_card.jpg/440px-Chernobyl_title_card.jpg", q:"Bu dizi hangisidir?", options:["The Zone","Nuclear","Reactor","Chernobyl"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/b/b4/The_Wire_title_card.png/440px-The_Wire_title_card.png", q:"Bu dizi hangisidir?", options:["The Shield","The Wire","Treme","Generation Kill"], answer:1 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/9/9b/Succession_title_card.jpg/440px-Succession_title_card.jpg", q:"Bu dizi hangisidir?", options:["Billions","Yellowstone","Succession","Veep"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/3/3e/Peaky_Blinders_title.jpg/440px-Peaky_Blinders_title.jpg", q:"Bu dizi hangisidir?", options:["Taboo","Ripper Street","Gangs of London","Peaky Blinders"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a4/Dark_title_card.jpg/440px-Dark_title_card.jpg", q:"Bu dizi hangisidir?", options:["1899","Severance","Dark","Sense8"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/e/e0/Narcos_title_card.jpg/440px-Narcos_title_card.jpg", q:"Bu dizi hangisidir?", options:["El Chapo","Ozark","Queen of the South","Narcos"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/c2/The_Boys_title_card.jpg/440px-The_Boys_title_card.jpg", q:"Bu dizi hangisidir?", options:["Invincible","Umbrella Academy","Jupiter's Legacy","The Boys"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a2/Better_Call_Saul_title_card.jpg/440px-Better_Call_Saul_title_card.jpg", q:"Bu dizi hangisidir?", options:["Breaking Bad","Ozark","Better Call Saul","Barry"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/e/e5/Severance_title_card.jpg/440px-Severance_title_card.jpg", q:"Bu dizi hangisidir?", options:["Westworld","Dollhouse","Severance","Fringe"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/d/d1/The_Last_of_Us_TV_title_card.jpg/440px-The_Last_of_Us_TV_title_card.jpg", q:"Bu dizi hangisidir?", options:["Station Eleven","The Walking Dead","The Last of Us","Fear TWD"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/The_Bear_TV_title_card.jpg/440px-The_Bear_TV_title_card.jpg", q:"Bu dizi hangisidir?", options:["Boiling Point","Kitchen Confidential","The Bear","Chef's Table"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/8/81/The_Mandalorian_title_card.jpg/440px-The_Mandalorian_title_card.jpg", q:"Bu dizi hangisidir?", options:["Boba Fett","Andor","Obi-Wan Kenobi","The Mandalorian"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/1/1d/Westworld_title_card.jpg/440px-Westworld_title_card.jpg", q:"Bu dizi hangisidir?", options:["Humans","Altered Carbon","Westworld","Black Mirror"], answer:2 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/c9/Yellowstone_title_card.jpg/440px-Yellowstone_title_card.jpg", q:"Bu dizi hangisidir?", options:["Longmire","1883","Outer Range","Yellowstone"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Black_Mirror_title_card.jpg/440px-Black_Mirror_title_card.jpg", q:"Bu dizi hangisidir?", options:["Years and Years","Humans","Electric Dreams","Black Mirror"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/a/a7/The_Crown_title_card.jpg/440px-The_Crown_title_card.jpg", q:"Bu dizi hangisidir?", options:["Victoria","Downton Abbey","Bridgerton","The Crown"], answer:3 },
+  ],
+
+  "Yabancı şarkıcılar": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Michael_Jackson_in_1988.jpg/440px-Michael_Jackson_in_1988.jpg", q:"Bu sanatçı kimdir?", options:["Prince","James Brown","Whitney Houston","Michael Jackson"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Adele_2016.jpg/440px-Adele_2016.jpg", q:"Bu sanatçı kimdir?", options:["Adele","Sam Smith","Dua Lipa","Ellie Goulding"], answer:0 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Beyonce_-_GMA_2011.jpg/440px-Beyonce_-_GMA_2011.jpg", q:"Bu sanatçı kimdir?", options:["Rihanna","Nicki Minaj","Cardi B","Beyoncé"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Ed_Sheeran_2013.jpg/440px-Ed_Sheeran_2013.jpg", q:"Bu sanatçı kimdir?", options:["Sam Smith","Harry Styles","Niall Horan","Ed Sheeran"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%281%29.png/440px-Taylor_Swift_at_the_2023_MTV_Video_Music_Awards_%281%29.png", q:"Bu sanatçı kimdir?", options:["Selena Gomez","Ariana Grande","Billie Eilish","Taylor Swift"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Eminem_Revival_Tour.jpg/440px-Eminem_Revival_Tour.jpg", q:"Bu sanatçı kimdir?", options:["Jay-Z","Kendrick Lamar","Drake","Eminem"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Freddie_Mercury_performing_in_New_Haven%2C_CT_cropped.jpg/440px-Freddie_Mercury_performing_in_New_Haven%2C_CT_cropped.jpg", q:"Bu sanatçı kimdir?", options:["David Bowie","Mick Jagger","Bruce Springsteen","Freddie Mercury"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Lady_Gaga_2019_by_Glenn_Francis.jpg/440px-Lady_Gaga_2019_by_Glenn_Francis.jpg", q:"Bu sanatçı kimdir?", options:["Katy Perry","Rihanna","Nicki Minaj","Lady Gaga"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Rihanna_2012.jpg/440px-Rihanna_2012.jpg", q:"Bu sanatçı kimdir?", options:["Beyoncé","Nicki Minaj","Cardi B","Rihanna"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Billie_Eilish_2019.png/440px-Billie_Eilish_2019.png", q:"Bu sanatçı kimdir?", options:["Olivia Rodrigo","Sabrina Carpenter","Gracie Abrams","Billie Eilish"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Harry_Styles_2019.jpg/440px-Harry_Styles_2019.jpg", q:"Bu sanatçı kimdir?", options:["Niall Horan","Zayn Malik","Liam Payne","Harry Styles"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Drake_-_Aubrey_%26_the_Three_Migos_Tour.jpg/440px-Drake_-_Aubrey_%26_the_Three_Migos_Tour.jpg", q:"Bu sanatçı kimdir?", options:["Kendrick Lamar","J. Cole","Future","Drake"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Bruno_Mars_in_Antwerp.jpg/440px-Bruno_Mars_in_Antwerp.jpg", q:"Bu sanatçı kimdir?", options:["Justin Timberlake","Jason Derulo","Charlie Puth","Bruno Mars"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Shakira_2023.jpg/440px-Shakira_2023.jpg", q:"Bu sanatçı kimdir?", options:["Jennifer Lopez","Selena Gomez","Camila Cabello","Shakira"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Dua_Lipa_2021.jpg/440px-Dua_Lipa_2021.jpg", q:"Bu sanatçı kimdir?", options:["Ava Max","Bebe Rexha","Rita Ora","Dua Lipa"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/The_Weeknd_2021.jpg/440px-The_Weeknd_2021.jpg", q:"Bu sanatçı kimdir?", options:["Frank Ocean","Daniel Caesar","Bryson Tiller","The Weeknd"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Post_Malone_2019.jpg/440px-Post_Malone_2019.jpg", q:"Bu sanatçı kimdir?", options:["Lil Uzi Vert","Juice WRLD","Lil Peep","Post Malone"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Kendrick_Lamar_2018.jpg/440px-Kendrick_Lamar_2018.jpg", q:"Bu sanatçı kimdir?", options:["J. Cole","Nas","Jay-Z","Kendrick Lamar"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Ariana_Grande_2019.jpg/440px-Ariana_Grande_2019.jpg", q:"Bu sanatçı kimdir?", options:["Selena Gomez","Demi Lovato","Miley Cyrus","Ariana Grande"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Coldplay_-_Music_of_the_Spheres_World_Tour.jpg/440px-Coldplay_-_Music_of_the_Spheres_World_Tour.jpg", q:"Bu grup hangisidir?", options:["U2","Radiohead","Muse","Coldplay"], answer:3 },
+  ],
+
+  "Futbol takımları": [
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/56/Real_Madrid_CF.svg/440px-Real_Madrid_CF.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Atletico Madrid","Valencia","Sevilla","Real Madrid"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/47/FC_Barcelona_%28crest%29.svg/440px-FC_Barcelona_%28crest%29.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Atletico Madrid","Sevilla","Valencia","FC Barcelona"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/7/7a/Manchester_United_FC_crest.svg/440px-Manchester_United_FC_crest.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Arsenal","Liverpool","Manchester City","Manchester United"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Liverpool_FC_crest.svg/440px-Liverpool_FC_crest.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Everton","Aston Villa","Sunderland","Liverpool"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/cc/Chelsea_FC.svg/440px-Chelsea_FC.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Tottenham","Arsenal","West Ham","Chelsea"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282002%E2%80%932017%29.svg/440px-FC_Bayern_M%C3%BCnchen_logo_%282002%E2%80%932017%29.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Borussia Dortmund","Bayer Leverkusen","RB Leipzig","Bayern München"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/4/4d/Borussia_Dortmund_logo.svg/440px-Borussia_Dortmund_logo.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Schalke 04","RB Leipzig","Bayer Leverkusen","Borussia Dortmund"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/0/05/PSG_logo.svg/440px-PSG_logo.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Lyon","Marseille","Monaco","PSG"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/FC_Internazionale_Milano_2021.svg/440px-FC_Internazionale_Milano_2021.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["AC Milan","Juventus","Napoli","Inter Milan"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Logo_of_AC_Milan.svg/440px-Logo_of_AC_Milan.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Inter Milan","Juventus","Roma","AC Milan"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Juventus_FC_2017_icon_%28black%29.svg/440px-Juventus_FC_2017_icon_%28black%29.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Inter Milan","AC Milan","Roma","Juventus"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Manchester_City_FC_badge.svg/440px-Manchester_City_FC_badge.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Manchester United","Chelsea","Arsenal","Manchester City"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/5/53/Arsenal_FC.svg/440px-Arsenal_FC.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Tottenham","Chelsea","West Ham","Arsenal"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/f/f3/Ajax-shield.svg/440px-Ajax-shield.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["PSV","Feyenoord","AZ Alkmaar","Ajax"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/6/6d/Atletico_Madrid_2017_logo.svg/440px-Atletico_Madrid_2017_logo.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Sevilla","Valencia","Real Madrid","Atletico Madrid"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/c/cd/Galatasaray_SK.svg/440px-Galatasaray_SK.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Beşiktaş","Fenerbahçe","Trabzonspor","Galatasaray"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Fenerbah%C3%A7e_SK.svg/440px-Fenerbah%C3%A7e_SK.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Galatasaray","Beşiktaş","Trabzonspor","Fenerbahçe"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Celtic_FC_crest.svg/440px-Celtic_FC_crest.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Rangers","Hearts","Aberdeen","Celtic"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/d/d9/Flamengo_RGB_logo.svg/440px-Flamengo_RGB_logo.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Fluminense","Santos","São Paulo","Flamengo"], answer:3 },
+    { img:"/.netlify/functions/proxy?url=https://upload.wikimedia.org/wikipedia/en/thumb/f/f5/Benfica_logo.svg/440px-Benfica_logo.svg.png", q:"Bu hangi futbol takımının logosudur?", options:["Sporting CP","Porto","Braga","Benfica"], answer:3 },
+  ],
+};
+
+// ── Constants ──
+const COLORS={sami:'#378ADD',emir:'#4CAF50',beko:'#F59E0B',space:'#A855F7'};
+const COLS=8,ROWS=8,TOTAL=COLS*ROWS;
+const TURN_ORDER=['sami','emir','beko','space'];
+const MAX_TIME=45;
+const PLAYER_DEFS=[
+  {id:'sami', name:'Sami', color:COLORS.sami, cats:['Anime karakterleri','Satranç oyuncuları','İnternet memeleri','İngilizce'], cols:[0,1,2,3], rowOffset:0},
+  {id:'emir', name:'Emir', color:COLORS.emir, cats:['Bilgisayar bileşenleri','Bilgisayar oyunları','Türk popçular','Filmler'],  cols:[4,5,6,7], rowOffset:0},
+  {id:'beko', name:'Beko', color:COLORS.beko, cats:['Eurovision şarkıları','Esport takımları','Fenerli futbolcular','Sitcomlar'],cols:[0,1,2,3], rowOffset:4},
+  {id:'space',name:'Space',color:COLORS.space,cats:['Marka logoları','Yabancı diziler','Yabancı şarkıcılar','Futbol takımları'],cols:[4,5,6,7], rowOffset:4},
+];
+
+// ── Local state ──
+let myId=null;
+let gs=null; // latest game state from Firebase
+let localTimer=null;
+let localTimeLeft=MAX_TIME;
+let gridBuilt=false;
+
+// ── Helpers ──
+function pd(id){return PLAYER_DEFS.find(p=>p.id===id);}
+
+function buildSquares(pid){
+  const p=pd(pid),sq=[];
+  for(let ci=0;ci<4;ci++){
+    const r=p.rowOffset+ci;
+    for(const c of p.cols) sq.push(r*COLS+c);
+  }
+  return sq;
+}
+
+function getCatOfCell(defId,cellIdx){
+  const p=pd(defId);
+  for(let ci=0;ci<p.cats.length;ci++){
+    const r=p.rowOffset+ci;
+    const cells=p.cols.map(c=>r*COLS+c);
+    if(cells.includes(cellIdx)) return p.cats[ci];
+  }
+  return null;
+}
+
+function getOwner(state,ci){
+  for(const pid of TURN_ORDER){
+    if(state.squares&&state.squares[pid]&&state.squares[pid].includes(ci)) return pid;
+  }
+  return null;
+}
+
+function isCatDepleted(state,cat){
+  return state.usedQ&&state.usedQ[cat]&&state.usedQ[cat].length>=(QUESTIONS[cat]||[]).length;
+}
+
+function pickQIdx(state,cat){
+  const all=QUESTIONS[cat]||[];
+  const used=(state.usedQ&&state.usedQ[cat])||[];
+  const avail=all.map((_,i)=>i).filter(i=>!used.includes(i));
+  if(!avail.length)return null;
+  return avail[Math.floor(Math.random()*avail.length)];
+}
+
+function nextTurn(state){
+  const alive=TURN_ORDER.filter(p=>!state.eliminated[p]);
+  if(!alive.length)return null;
+  const i=alive.indexOf(state.currentTurn);
+  return alive[(i+1)%alive.length];
+}
+
+// ── Init state ──
+function buildInitialState(){
+  const squares={},eliminated={},usedQ={};
+  for(const p of PLAYER_DEFS){
+    squares[p.id]=buildSquares(p.id);
+    eliminated[p.id]=false;
+  }
+  Object.keys(QUESTIONS).forEach(k=>usedQ[k]=[]);
+  return{squares,eliminated,usedQ,currentTurn:'sami',phase:'pick',battle:null};
+}
+
+// ── Join ──
+function joinAs(pid){
+  myId=pid;
+  document.getElementById('screen-join').style.display='none';
+  document.getElementById('screen-board').style.display='flex';
+  gRef.once('value',snap=>{
+    if(!snap.exists()) gRef.set(buildInitialState());
+    listenGame();
+  });
+}
+
+// ── Listen ──
+function listenGame(){
+  gRef.on('value',snap=>{
+    const state=snap.val();
+    if(!state)return;
+    gs=state;
+    render(state);
+  });
+}
+
+// ── Render ──
+function render(state){
+  renderBoard(state);
+  renderLabels(state);
+  renderPlayersBar(state);
+  renderTurnPill(state);
+
+  if(state.phase==='pick')       showPickPhase(state);
+  else if(state.phase==='battle') showBattlePhase(state);
+  else if(state.phase==='result') showResultPhase(state);
+  else if(state.phase==='gameover') showGameOver(state);
+}
+
+function renderBoard(state){
+  const g=document.getElementById('game-grid');
+  if(!gridBuilt){
+    g.innerHTML='';
+    for(let i=0;i<TOTAL;i++){
+      const c=document.createElement('div');
+      c.className='cell';c.id='c'+i;
+      g.appendChild(c);
+    }
+    gridBuilt=true;
+  }
+  for(let i=0;i<TOTAL;i++){
+    const el=document.getElementById('c'+i);
+    const owner=getOwner(state,i);
+    el.className='cell'+(owner?' o-'+owner:'');
+    el.onclick=null;
+    el.title='';
+
+    // Show targeted cell
+    if(state.battle&&state.battle.cellId===i){
+      el.classList.add('targeted');
+    }
+
+    // In pick phase: highlight attackable cells for current turn player
+    if(state.phase==='pick'&&state.currentTurn===myId&&owner&&owner!==myId){
+      const cat=getCatOfCell(owner,i);
+      if(cat&&!isCatDepleted(state,cat)){
+        el.classList.add('attackable');
+        el.title=cat;
+        el.onclick=(()=>{const c=i,o=owner;return()=>doAttack(state,c,o);})();
+      }
+    }
+  }
+}
+
+function renderLabels(state){
+  const mk=(pid,right)=>{
+    const p=pd(pid);
+    const grp=document.createElement('div');
+    grp.className='lgroup';
+    p.cats.forEach(cat=>{
+      const el=document.createElement('div');
+      el.className='lbl'+(isCatDepleted(state,cat)?' dep':'');
+      el.style.background=p.color+'20';el.style.color=p.color;
+      if(!right)el.style.borderLeft='3px solid '+p.color;
+      else el.style.borderRight='3px solid '+p.color;
+      el.textContent=cat;el.title=cat;
+      grp.appendChild(el);
+    });
+    return grp;
+  };
+  const l=document.getElementById('labels-l');l.innerHTML='';
+  l.appendChild(mk('sami',false));l.appendChild(mk('beko',false));
+  const r=document.getElementById('labels-r');r.innerHTML='';
+  r.appendChild(mk('emir',true));r.appendChild(mk('space',true));
+}
+
+function renderPlayersBar(state){
+  const b=state.battle;
+  document.getElementById('players-bar').innerHTML=TURN_ORDER.map(pid=>{
+    const p=pd(pid);
+    const sq=(state.squares[pid]||[]).length;
+    // pas hakkı sadece aktif savaşta göster
+    let pasStr='';
+    if(b&&(pid===b.attacker||pid===b.defender)){
+      const pas=(b.passes&&b.passes[pid]!=null)?b.passes[pid]:2;
+      pasStr=`<span class="pas" title="Pas hakkı">P:${pas}</span>`;
+    }
+    const isActive=state.currentTurn===pid&&state.phase==='pick';
+    return`<div class="pchip${pid===myId?' my':''}${state.eliminated[pid]?' elim':''}${isActive?' active-turn':''}"
+      style="${isActive||pid===myId?'border-color:'+p.color+';border-width:2px':''}">
+      <div class="dot" style="background:${p.color}"></div>
+      <span class="pname">${p.name}${pid===myId?' ★':''}</span>
+      <span class="psq">${sq}k</span>
+      ${pasStr}
+    </div>`;
+  }).join('');
+}
+
+function renderTurnPill(state){
+  const pill=document.getElementById('turn-pill');
+  if(state.phase==='gameover'){pill.textContent='Oyun bitti';return;}
+  const p=pd(state.currentTurn);
+  pill.style.color=p.color;pill.style.borderColor=p.color;
+  if(state.phase==='pick'){
+    pill.textContent=state.currentTurn===myId?'SENİN SIRAN!':p.name.toUpperCase()+"'IN SIRASI";
+  } else if(state.phase==='battle'||state.phase==='result'){
+    const b=state.battle;
+    pill.textContent=`Soru ${b.roundNum} — ${pd(b.asker).name} ↔ ${pd(b.defender).name}`;
+  }
+}
+
+// ── Pick phase ──
+function showPickPhase(state){
+  document.getElementById('screen-q').classList.remove('open');
+  document.getElementById('screen-win').classList.remove('open');
+  stopTimer();
+
+  const lbl=document.getElementById('action-lbl');
+  const pasbtn=document.getElementById('btn-pas');
+
+  if(state.currentTurn===myId){
+    lbl.textContent='Rakip bir kareye tıkla ve saldır!';
+    lbl.style.color='#fff';
+    pasbtn.style.display='none'; // pick aşamasında pas yok
+  } else {
+    lbl.textContent=pd(state.currentTurn).name+' saldırı seçiyor...';
+    lbl.style.color='#888';
+    pasbtn.style.display='none';
+  }
+}
+
+function usePas(){
+  if(!gs||gs.phase!=='battle')return;
+  const b=gs.battle;
+  if(b.asker!==myId)return; // sadece şu an sorulan pas yapabilir
+  const passes=b.passes||{};
+  const myPas=(passes[myId]!=null)?passes[myId]:2;
+  if(myPas<=0){alert('Bu savaşta pas hakkın kalmadı!');return;}
+
+  // Pas: soru kullanılmış say, sırayı karşı tarafa ver, yeni soru çek
+  const qIdx=pickQIdx(gs,b.category);
+  if(qIdx==null){alert('Soru kalmadı!');return;}
+
+  const newUsedQ=JSON.parse(JSON.stringify(gs.usedQ||{}));
+  if(!newUsedQ[b.category])newUsedQ[b.category]=[];
+  newUsedQ[b.category].push(b.questionIdx); // eskisini de kullanılmış say
+  newUsedQ[b.category].push(qIdx);
+
+  const nextAsker=b.asker===b.attacker?b.defender:b.attacker;
+  const newPasses={...passes,[myId]:myPas-1};
+
+  // Reset only the NEW asker's timer; other player's timer is preserved
+  const timerReset = nextAsker===b.attacker
+    ? {attTimeLeft:MAX_TIME}
+    : {defTimeLeft:MAX_TIME};
+  const newBattle={
+    ...b,
+    asker:nextAsker,
+    questionIdx:qIdx,
+    roundNum:b.roundNum+1,
+    questionStartTime:Date.now(),
+    answer:null,
+    answered:false,
+    passes:newPasses,
+    ...timerReset,
+  };
+  gRef.update({battle:newBattle,usedQ:newUsedQ});
+}
+
+// ── Attack ──
+function doAttack(state,cellIdx,defId){
+  if(state.currentTurn!==myId||state.phase!=='pick')return;
+  const cat=getCatOfCell(defId,cellIdx);
+  if(!cat||isCatDepleted(state,cat)){alert('Bu kategorinin soruları bitti!');return;}
+  const qIdx=pickQIdx(state,cat);
+  if(qIdx==null){alert('Soru kalmadı!');return;}
+
+  const newUsedQ=JSON.parse(JSON.stringify(state.usedQ||{}));
+  if(!newUsedQ[cat])newUsedQ[cat]=[];
+  newUsedQ[cat].push(qIdx);
+
+  // Battle: asker = saldıran (currentTurn), defender = hedef
+  const now=Date.now();
+  const battle={
+    attacker:myId,
+    asker:myId,
+    defender:defId,
+    category:cat,
+    questionIdx:qIdx,
+    cellId:cellIdx,
+    roundNum:1,
+    startTime:now,
+    questionStartTime:now,
+    attTimeLeft:MAX_TIME,
+    defTimeLeft:MAX_TIME,
+    answer:null,
+    answered:false,
+    eliminated:null,
+    passes:{[myId]:2,[defId]:2},
+  };
+
+  gRef.update({phase:'battle',battle,usedQ:newUsedQ});
+}
+
+// ── Battle phase ──
+function showBattlePhase(state){
+  const b=state.battle;
+  if(!b)return;
+  const q=QUESTIONS[b.category][b.questionIdx];
+  const askerPd=pd(b.asker),defPd=pd(b.defender);
+  const amAsker=myId===b.asker,amDef=myId===b.defender;
+  const iAmInBattle=amAsker||amDef;
+
+  document.getElementById('screen-q').classList.add('open');
+  document.getElementById('btn-continue').style.display='none';
+  document.getElementById('status-msg').style.display='none';
+
+  // Header
+  const setAv=(elId,p)=>{const el=document.getElementById(elId);el.style.cssText=`background:${p.color}33;color:${p.color};border:2px solid ${p.color}`;el.textContent=p.name[0];};
+  setAv('av-q',pd(b.attacker));setAv('av-d',defPd);
+  document.getElementById('name-q').textContent=pd(b.attacker).name;
+  document.getElementById('name-d').textContent=defPd.name;
+  document.getElementById('round-badge').textContent='TUR '+b.roundNum;
+
+  // Q
+  document.getElementById('q-cat').textContent=b.category;
+  document.getElementById('q-text').textContent=q.q;
+  document.getElementById('q-whose').textContent=`📢 ${pd(b.asker).name}'ın sorusu`;
+  document.getElementById('q-whose').style.color=pd(b.asker).color;
+
+  const imgEl=document.getElementById('q-img');
+  const errEl=document.getElementById('q-img-err');
+  imgEl.style.display='block';errEl.style.display='none';
+  imgEl.src=q.img;
+
+  // Timers
+  const attPd=pd(b.attacker);
+  document.getElementById('t-q-name').textContent=attPd.name;
+  document.getElementById('t-q-name').className='t-name'+(b.attacker===myId?' mine':'');
+  document.getElementById('t-q-bar').style.background=attPd.color;
+  document.getElementById('t-d-name').textContent=defPd.name;
+  document.getElementById('t-d-name').className='t-name'+(b.defender===myId?' mine':'');
+  document.getElementById('t-d-bar').style.background=defPd.color;
+
+  // Each player has their OWN 45s timer stored in battle
+  // attTimeLeft and defTimeLeft stored in Firebase, decremented locally
+  const attLeft = (b.attTimeLeft != null) ? b.attTimeLeft : MAX_TIME;
+  const defLeft = (b.defTimeLeft != null) ? b.defTimeLeft : MAX_TIME;
+  updateTimerBar('t-q', attLeft);
+  updateTimerBar('t-d', defLeft);
+
+  // Options — only if it's my turn to answer
+  const optsEl=document.getElementById('q-opts');
+  const pasbtn=document.getElementById('btn-pas');
+  if(amAsker&&!b.answered){
+    optsEl.innerHTML=q.options.map((o,i)=>`
+      <button class="qo" onclick="submitBattleAnswer(${i})">${String.fromCharCode(65+i)}. ${o}</button>`).join('');
+    // Pas butonu
+    const myPas=(b.passes&&b.passes[myId]!=null)?b.passes[myId]:2;
+    pasbtn.style.display='inline-block';
+    pasbtn.disabled=myPas<=0;
+    pasbtn.textContent=`PAS (${myPas} hak)`;
+    // My timer: use my stored timeLeft from Firebase, or MAX_TIME if first question
+    const myTimeLeft = amAsker && b.asker === b.attacker
+      ? (b.attTimeLeft != null ? b.attTimeLeft : MAX_TIME)
+      : (b.defTimeLeft != null ? b.defTimeLeft : MAX_TIME);
+    startTimer(myTimeLeft, ()=>submitBattleAnswer(-1));
+  } else {
+    optsEl.innerHTML=q.options.map((o,i)=>`
+      <button class="qo" disabled>${String.fromCharCode(65+i)}. ${o}</button>`).join('');
+    pasbtn.style.display='none';
+    stopTimer();
+    if(!amAsker&&iAmInBattle){
+      const sm=document.getElementById('status-msg');
+      sm.style.display='block';sm.className='status-msg info';
+      sm.textContent=`${pd(b.asker).name} cevaplıyor, bekle...`;
+    }
+  }
+}
+
+function updateTimerBar(prefix,left){
+  const num=document.getElementById(prefix+'-num');
+  const bar=document.getElementById(prefix+'-bar');
+  num.textContent=left;
+  num.style.opacity='1';
+  num.className='t-num'+(left<=10?' red':'');
+  bar.style.width=(left/MAX_TIME*100)+'%';
+}
+
+function startTimer(from,onEnd){
+  stopTimer();
+  localTimeLeft=from;
+  // Determine which Firebase key to update (attTimeLeft or defTimeLeft)
+  const amAtt=myId===gs.battle.attacker;
+  const fbKey='battle/'+(amAtt?'attTimeLeft':'defTimeLeft');
+  const displayPrefix=amAtt?'t-q':'t-d';
+  localTimer=setInterval(()=>{
+    if(!gs||!gs.battle||gs.phase!=='battle'){stopTimer();return;}
+    localTimeLeft=Math.max(0,localTimeLeft-1);
+    updateTimerBar(displayPrefix,localTimeLeft);
+    // Push to Firebase every 5s or on timeout
+    if(localTimeLeft%5===0||localTimeLeft===0){
+      const update={};
+      update[fbKey]=localTimeLeft;
+      gRef.update(update);
+    }
+    if(localTimeLeft===0){stopTimer();onEnd();}
+  },1000);
+}
+
+function stopTimer(){
+  if(localTimer){clearInterval(localTimer);localTimer=null;}
+}
+
+// ── Submit answer ──
+function submitBattleAnswer(idx){
+  stopTimer();
+  if(!gs||gs.phase!=='battle')return;
+  const b=gs.battle;
+  if(b.answered)return;
+  if(b.asker!==myId)return;
+
+  const q=QUESTIONS[b.category][b.questionIdx];
+  const correct=idx===q.answer;
+
+  if(!correct){
+    // Lost! transfer cell
+    finishBattle(gs,'loser',myId);
+  } else {
+    // Correct — next round: swap asker
+    nextBattleRound(gs);
+  }
+}
+
+function nextBattleRound(state){
+  const b=state.battle;
+  const nextAsker=b.asker===b.attacker?b.defender:b.attacker;
+  const qIdx=pickQIdx(state,b.category);
+  if(qIdx==null){
+    // No more questions in category — draw, cell stays
+    finishBattle(state,'draw',null);
+    return;
+  }
+  const newUsedQ=JSON.parse(JSON.stringify(state.usedQ||{}));
+  if(!newUsedQ[b.category])newUsedQ[b.category]=[];
+  newUsedQ[b.category].push(qIdx);
+
+  const newBattle={
+    ...b,
+    asker:nextAsker,
+    questionIdx:qIdx,
+    roundNum:b.roundNum+1,
+    startTime:Date.now(),
+    answer:null,
+    answered:false,
+  };
+  gRef.update({battle:newBattle,usedQ:newUsedQ});
+}
+
+function finishBattle(state,outcome,loserId){
+  const b=state.battle;
+  const newSquares=JSON.parse(JSON.stringify(state.squares));
+  let resultText='';
+
+  if(outcome==='loser'&&loserId){
+    // loserId loses the cell
+    if(loserId===b.defender){
+      // attacker wins
+      newSquares[b.defender]=newSquares[b.defender].filter(c=>c!==b.cellId);
+      newSquares[b.attacker].push(b.cellId);
+      resultText=`${pd(b.attacker).name} kareyi aldı!`;
+    } else {
+      // defender wins (attacker failed)
+      resultText=`${pd(b.defender).name} kareyi korudu!`;
+    }
+  } else {
+    resultText='Berabere — kare değişmedi.';
+  }
+
+  // Check elimination
+  const newElim=JSON.parse(JSON.stringify(state.eliminated));
+  for(const pid of TURN_ORDER){
+    if(!newElim[pid]&&(newSquares[pid]||[]).length===0) newElim[pid]=true;
+  }
+  const alive=TURN_ORDER.filter(p=>!newElim[p]);
+
+  const newBattle={...b,outcome,loserId,resultText,answered:true};
+  gRef.update({
+    squares:newSquares,
+    eliminated:newElim,
+    battle:newBattle,
+    phase:alive.length<=1?'gameover':'result',
+  });
+}
+
+// ── Result phase ──
+function showResultPhase(state){
+  const b=state.battle;
+  if(!b)return;
+  const q=QUESTIONS[b.category][b.questionIdx];
+  stopTimer();
+
+  document.getElementById('screen-q').classList.add('open');
+  document.getElementById('status-msg').style.display='none';
+  document.getElementById('btn-continue').style.display='none';
+
+  // Reveal answer in opts
+  document.getElementById('q-opts').innerHTML=q.options.map((o,i)=>`
+    <button class="qo${i===q.answer?' correct':''}" disabled>${String.fromCharCode(65+i)}. ${o}</button>`).join('');
+
+  const sm=document.getElementById('status-msg');
+  sm.style.display='block';
+  const iWon=(b.loserId&&b.loserId!==myId)||(b.outcome==='draw');
+  const iLost=b.loserId===myId;
+  sm.className='status-msg'+(iLost?' lose':iWon?' win':' info');
+  sm.textContent=b.resultText||'Sonuç bekleniyor...';
+
+  // Only attacker shows continue
+  if(myId===b.attacker){
+    document.getElementById('btn-continue').style.display='inline-block';
+  }
+}
+
+function continueAfterRound(){
+  if(!gs)return;
+  const next=nextTurn(gs);
+  gRef.update({phase:'pick',battle:null,currentTurn:next});
+}
+
+// ── Game over ──
+function showGameOver(state){
+  stopTimer();
+  document.getElementById('screen-q').classList.remove('open');
+  const winner=TURN_ORDER.find(pid=>!state.eliminated[pid]);
+  if(!winner)return;
+  const p=pd(winner);
+  document.getElementById('win-name').textContent=p.name+' kazandı!';
+  document.getElementById('win-name').style.color=p.color;
+  document.getElementById('win-sub').textContent=(state.squares[winner]||[]).length+' kare ile oyunu bitirdi.';
+  document.getElementById('screen-win').classList.add('open');
+}
+
+function resetGame(){
+  document.getElementById('screen-win').classList.remove('open');
+  gridBuilt=false;
+  gRef.set(buildInitialState());
+}
+
+function confirmReset(){
+  if(confirm('Oyunu sıfırlamak istediğine emin misin? Herkes için sıfırlanır.')) resetGame();
+}
+</script>
+</body>
+</html>
